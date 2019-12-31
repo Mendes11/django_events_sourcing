@@ -1,5 +1,6 @@
 # django_events_sourcing
-Library that dispatches events based on Django's model Create/Update/Delete operations.
+Library that dispatches events based on Django's model Create/Update/Delete
+ operations using Nameko Standalone functions.
 
 ### Configuration
 Currently it's usage is based on Nameko's Standalone Event Dispatcher so we
@@ -31,7 +32,7 @@ Every model that you want to dispatch an event should be added in the
 # List of Model and Serializer to be used for the event.
 MODELS_CRUD_EVENT = [
     ('app.Model1', 'app.serializers.Model1Serializer'),
-    'app.Model2',
+    ('app.Model2', ),
 ]
 ```
 
