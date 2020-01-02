@@ -10,8 +10,7 @@ Currently it's usage is based on Nameko's Standalone Event Dispatcher so we
 # Config to be passed to ClusterRpcProxy
 SERVICE_NAME = 'service_name'
 NAMEKO_CONFIG = {
-    'AMQP_URI': config('AMQP_URI',
-                       default='amqp://guest:guest@localhost:5672/')
+    'AMQP_URI': 'amqp://guest:guest@localhost:5672/'
 }
 ```
 
