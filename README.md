@@ -2,6 +2,10 @@
 Library that dispatches events based on Django's model Create/Update/Delete
  operations using Nameko Standalone functions.
 
+### Installing
+
+`pip install nameko django-events-sourcing`
+
 ### Configuration
 Currently it's usage is based on Nameko's Standalone Event Dispatcher so we
  need to configure it:
