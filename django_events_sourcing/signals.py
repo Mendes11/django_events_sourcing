@@ -13,11 +13,10 @@ logger = logging.getLogger('django')
 
 LOADED_MODELS_DICT = {}
 for model_crud_event in settings.MODELS_CRUD_EVENT:
-    model = model_crud_event[0]
-    if len(model_crud_event) == 2:
-        serializer = model_crud_event[1]
-    else:
-        serializer = None
+    model = model_crud_event['model']
+    serializer = model_crud_event.get('serializer', None)
+    dispatch_status_field = model_crud_event.get('status_field', None)
+
     app, model = model.rsplit('.', 1)
     model = apps.get_app_config(app).get_model(model)
     if serializer:
@@ -27,16 +26,28 @@ for model_crud_event in settings.MODELS_CRUD_EVENT:
         serializer = type('NoClassSerializer', (serializers.ModelSerializer,),
                           {'Meta': type('Meta', (), {'model': model,
                                                      'fields': '__all__'})})
-    LOADED_MODELS_DICT[model] = serializer
+
+    if dispatch_status_field and not hasattr(model, dispatch_status_field):
+        raise AttributeError(
+            'status_field "{}" not present in "{}" model'.format(
+                dispatch_status_field, model))
+
+    LOADED_MODELS_DICT[model] = {'serializer': serializer,
+                                 'status_field': dispatch_status_field}
 
 
 def generic_post_save(sender, instance, created, **kwargs):
+    model_data = LOADED_MODELS_DICT.get(sender)
     event_name = re.sub('(?<!^)(?=[A-Z])', '_', sender.__name__).lower()
-    if created:
+    if not model_data.get('status_field') and created:
         event_name += '__created'
-    else:
+    elif not model_data.get('status_field'):
         event_name += '__updated'
-    serializer_cls = LOADED_MODELS_DICT.get(sender)
+    else:
+        event_name += '__{}'.format(
+            getattr(instance, model_data['status_field']))
+
+    serializer_cls = model_data['serializer']
     serializer = serializer_cls(instance=instance)
     try:
         event_dispatcher(settings.NAMEKO_CONFIG)(settings.SERVICE_NAME,
@@ -48,9 +59,10 @@ def generic_post_save(sender, instance, created, **kwargs):
 
 
 def generic_post_delete(sender, instance, **kwargs):
+    model_data = LOADED_MODELS_DICT.get(sender)
     event_name = re.sub('(?<!^)(?=[A-Z])', '_', sender.__name__).lower()
     event_name += '__deleted'
-    serializer_cls = LOADED_MODELS_DICT.get(sender)
+    serializer_cls = model_data['serializer']
     serializer = serializer_cls(instance=instance)
     try:
         event_dispatcher(settings.NAMEKO_CONFIG)(settings.SERVICE_NAME,
