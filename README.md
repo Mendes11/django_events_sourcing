@@ -34,8 +34,10 @@ Every model that you want to dispatch an event should be added in the
 ```
 # List of Model and Serializer to be used for the event.
 MODELS_CRUD_EVENT = [
-    ('app.Model1', 'app.serializers.Model1Serializer'),
-    ('app.Model2', ),
+    {'model': app.Model1', 
+     'serializer': 'app.serializers.Model1Serializer'},
+    {'model': 'app.Model2'},
+    {'model': 'app.ModelWithStatus', 'status_field': 'status'}
 ]
 ```
 
@@ -43,7 +45,21 @@ In the example above, Model1 from app will be serialized using a specific
  serializer while Model2 will be serialized using a ModelSerializer from
   Django RestFramework with all fields included.
   
-Now every .save() or .delete() method called for one of this models will be
- dispatched as an event with the structure:
+Now every .save() or .delete() method called for one of this models (except
+ for ModelWithStatus explained bellow) will be dispatched as an event with
+  the structure:
  ``model_name__created, model_name__updated, model_name__deleted``.
+ 
+If you wish to dispatch different names, you can pass a 'status_field' inside
+ the dict with a reference to a field containing a string (usually a
+  using a choices attribute). 
+  Ex: 
+  ```python
+class ModelWithStatus(models.Model):
+    STATUS_CHOICES = (('started', 'Started'), ('finished', 'Finished'))
+    status = models.CharField(max_lenght=200, choices=STATUS_CHOICES)
+
+```
+  The dispatcher will use `model_name__[field_value]` for any .save() call
+   and `model_name__deleted` when it is deleted.
  
