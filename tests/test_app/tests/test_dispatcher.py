@@ -10,7 +10,7 @@ from tests.test_app.models import Model1, ModelNoEvent, StatusModel, \
 
 
 class TestModelDispatcher(TestCase):
-    @patch('django_events_sourcing.signals.event_dispatcher')
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
     def setUp(self, mock) -> None:
         self.m1 = Model1.objects.create(
             int_field=10,
@@ -19,7 +19,7 @@ class TestModelDispatcher(TestCase):
             dt_field=datetime(2019, 1, 1)
         )
 
-    @patch('django_events_sourcing.signals.event_dispatcher')
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
     def test_model_1_creation_no_event(self, mock):
         dispatcher = MagicMock()
         mock.return_value = dispatcher
@@ -31,7 +31,7 @@ class TestModelDispatcher(TestCase):
         )
         dispatcher.assert_not_called()
 
-    @patch('django_events_sourcing.signals.event_dispatcher')
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
     def test_model_1_creation_event_called(self, mock):
         dispatcher = MagicMock()
         mock.return_value = dispatcher
@@ -52,7 +52,7 @@ class TestModelDispatcher(TestCase):
             }
         )
 
-    @patch('django_events_sourcing.signals.event_dispatcher')
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
     def test_model_1_updated(self, mock):
         dispatcher = MagicMock()
         mock.return_value = dispatcher
@@ -69,7 +69,7 @@ class TestModelDispatcher(TestCase):
             }
         )
 
-    @patch('django_events_sourcing.signals.event_dispatcher')
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
     def test_model_1_deleted(self, mock):
         dispatcher = MagicMock()
         mock.return_value = dispatcher
@@ -88,7 +88,7 @@ class TestModelDispatcher(TestCase):
 
 
 class TestStatusModelDispatcher(TestCase):
-    @patch('django_events_sourcing.signals.event_dispatcher')
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
     def setUp(self, mock) -> None:
         self.m1 = StatusModel.objects.create(
             int_field=10,
@@ -105,7 +105,7 @@ class TestStatusModelDispatcher(TestCase):
             state='created'
         )
 
-    @patch('django_events_sourcing.signals.event_dispatcher')
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
     def test_status_dispatched(self, mock):
         dispatcher = MagicMock()
         mock.return_value = dispatcher
@@ -129,7 +129,7 @@ class TestStatusModelDispatcher(TestCase):
             }
         )
 
-    @patch('django_events_sourcing.signals.event_dispatcher')
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
     def test_different_status_on_creation(self, mock):
         dispatcher = MagicMock()
         mock.return_value = dispatcher
@@ -153,7 +153,7 @@ class TestStatusModelDispatcher(TestCase):
             }
         )
 
-    @patch('django_events_sourcing.signals.event_dispatcher')
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
     def test_status_change_dispatched(self, mock):
         dispatcher = MagicMock()
         mock.return_value = dispatcher
@@ -173,7 +173,7 @@ class TestStatusModelDispatcher(TestCase):
             }
         )
 
-    @patch('django_events_sourcing.signals.event_dispatcher')
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
     def test_model_deleted_dispatched(self, mock):
         dispatcher = MagicMock()
         mock.return_value = dispatcher
@@ -192,7 +192,7 @@ class TestStatusModelDispatcher(TestCase):
             }
         )
 
-    @patch('django_events_sourcing.signals.event_dispatcher')
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
     def test_model_different_state_field_name(self, mock):
         dispatcher = MagicMock()
         mock.return_value = dispatcher

@@ -1,13 +1,13 @@
 import logging
 from importlib import import_module
 
-import amqp
 import re
 from django.apps import apps
 from django.conf import settings
 from django.db.models.signals import post_save, post_delete
-from nameko.standalone.events import event_dispatcher
 from rest_framework import serializers
+
+from django_events_sourcing.nameko.events import dispatch
 
 logger = logging.getLogger('django')
 
@@ -49,13 +49,7 @@ def generic_post_save(sender, instance, created, **kwargs):
 
     serializer_cls = model_data['serializer']
     serializer = serializer_cls(instance=instance)
-    try:
-        event_dispatcher(settings.NAMEKO_CONFIG)(settings.SERVICE_NAME,
-                                                 event_name, serializer.data)
-    except amqp.exceptions.NotFound:
-        # TODO It is interesting to force the creation of the exchange in
-        #  rabbit even if no one is listening
-        pass
+    dispatch(event_name, serializer.data)
 
 
 def generic_post_delete(sender, instance, **kwargs):
@@ -64,13 +58,7 @@ def generic_post_delete(sender, instance, **kwargs):
     event_name += '__deleted'
     serializer_cls = model_data['serializer']
     serializer = serializer_cls(instance=instance)
-    try:
-        event_dispatcher(settings.NAMEKO_CONFIG)(settings.SERVICE_NAME,
-                                                 event_name, serializer.data)
-    except amqp.exceptions.NotFound:
-        # TODO It is interesting to force the creation of the exchange in
-        #  rabbit even if no one is listening
-        pass
+    dispatch(event_name, serializer.data)
 
 
 for app_model, model_serializer in LOADED_MODELS_DICT.items():
