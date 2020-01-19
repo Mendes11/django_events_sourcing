@@ -5,6 +5,7 @@ from django.conf import settings
 from django.test import TestCase, override_settings
 from unittest.mock import patch, MagicMock
 
+from django_events_sourcing.testing import disable_dispatcher
 from tests.test_app.models import Model1, ModelNoEvent, StatusModel, \
     StatusModel2
 
@@ -85,6 +86,20 @@ class TestModelDispatcher(TestCase):
                 'char_field': 'test',
             }
         )
+
+    @override_settings(MODELS_CRUD_EVENT=[])
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    def test_no_event_dispatched(self, mock):
+        dispatcher = MagicMock()
+        mock.return_value = dispatcher
+        Model1.objects.create(
+            int_field=10,
+            char_field='test',
+            uuid_field=uuid.uuid4(),
+            dt_field=datetime(2019, 1, 1)
+        )
+        mock.assert_not_called()
+
 
 
 class TestStatusModelDispatcher(TestCase):
@@ -211,3 +226,76 @@ class TestStatusModelDispatcher(TestCase):
                 'state': 'failed'
             }
         )
+
+
+class TestDisableDispatcherDecorator(TestCase):
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    def setUp(self, mock) -> None:
+        self.m1 = Model1.objects.create(
+            int_field=10,
+            char_field='test',
+            uuid_field=uuid.uuid4(),
+            dt_field=datetime(2019, 1, 1)
+        )
+
+    @disable_dispatcher()
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    def test_all_models_disabled(self, mock):
+        dispatcher = MagicMock()
+        mock.return_value = dispatcher
+        self.m1.int_field = 100
+        self.m1.save()
+        self.m1.delete()
+        Model1.objects.create(int_field=200, char_field='test',
+                              uuid_field=uuid.uuid4(),
+                              dt_field=datetime(2019, 1, 1))
+        dispatcher.assert_not_called()
+
+    @disable_dispatcher(models_list=['test_app.Model1'])
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    def test_model_1_disabled(self, mock):
+        dispatcher = MagicMock()
+        mock.return_value = dispatcher
+        self.m1.int_field = 100
+        self.m1.save()
+        self.m1.delete()
+        StatusModel.objects.create(int_field=200, char_field='test',
+                              uuid_field=uuid.uuid4(),
+                              dt_field=datetime(2019, 1, 1))
+        dispatcher.assert_called_once()
+
+
+@disable_dispatcher()
+class TestDisableDispatcherClassDecoratorAllModels(TestCase):
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    def test_nothing_dispatched(self, mock):
+        dispatcher = MagicMock()
+        mock.return_value = dispatcher
+        StatusModel.objects.create(int_field=200, char_field='test',
+                                   uuid_field=uuid.uuid4(),
+                                   dt_field=datetime(2019, 1, 1))
+        dispatcher.assert_not_called()
+
+
+@disable_dispatcher(models_list=['test_app.Model1'])
+class TestDisableDispatcherClassDecoratorModel1(TestCase):
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    def test_model_1_not_dispatched(self, mock):
+        dispatcher = MagicMock()
+        mock.return_value = dispatcher
+        self.m1 = Model1.objects.create(
+            int_field=10,
+            char_field='test',
+            uuid_field=uuid.uuid4(),
+            dt_field=datetime(2019, 1, 1)
+        )
+        dispatcher.assert_not_called()
+
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    def test_status_model_dispatched(self, mock):
+        dispatcher = MagicMock()
+        mock.return_value = dispatcher
+        StatusModel.objects.create(int_field=200, char_field='test',
+                                   uuid_field=uuid.uuid4(),
+                                   dt_field=datetime(2019, 1, 1))
+        dispatcher.assert_called_once()
