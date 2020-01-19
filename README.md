@@ -63,3 +63,35 @@ class ModelWithStatus(models.Model):
   The dispatcher will use `model_name__[field_value]` for any .save() call
    and `model_name__deleted` when it is deleted.
  
+ 
+ ### Disabling Dispatcher during Tests
+ When you run your tests, you usually won't want to dispatch the model events
+  registered in your settings.
+  
+ To disable the dispatcher during your tests, django_events_sourcing provides
+  you with a decorator that does that for you. You can disable all or some of
+   the registered models using the decorator `disable_dispacher`.
+   
+   ```python
+from django_events_sourcing.testing import disable_dispatcher
+from django.test import TestCase
+
+@disable_dispatcher()
+class TestSomething(TestCase):
+    """This will disable all registered models for all tests inside the class"""
+
+    @disable_dispatcher()
+    def test_somethihg(self):
+        """It also can be used to decorate only one function."""
+
+
+@disable_dispatcher(models_list=['app.ModelName'])
+class TestSomething(TestCase):
+    """This will disable only 'app.ModelName' from being dispatched in all tests
+     inside this class."""
+
+    @disable_dispatcher(models_list=['app.ModelName'])
+    def test_somethihg(self):
+        """It also can be used to decorate only one function."""
+        pass
+```
