@@ -22,8 +22,8 @@ For usage, add this project to your installed apps:
 
 ```
 INSTALLED_APPS = [
-...,
-django_events_sourcing,
+    ...,
+    'django_events_sourcing',
 ]
 ```
 
