@@ -7,8 +7,13 @@ from django_events_sourcing.nameko.events import dispatch
 from django_events_sourcing.utils import load_model_configurations
 
 
+def slug_model_name(instance):
+    return re.sub('(?<!^)(?=[A-Z])', '_', type(instance).__name__).lower()
+
 def get_event_name(instance, model_data, action):
-    event_name = re.sub('(?<!^)(?=[A-Z])', '_', type(instance).__name__).lower()
+    event_name = model_data.get("event_name_prefix")
+    if event_name is None:
+        event_name = slug_model_name(instance)
     if action == 'deleted':
         event_name += '__deleted'
     elif not model_data.get('status_field') and action == 'created':
