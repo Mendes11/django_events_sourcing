@@ -3,8 +3,9 @@ from datetime import datetime
 
 from django.conf import settings
 from django.test import TestCase, override_settings
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 
+from django_events_sourcing.register import disable_model_obj_dispatcher
 from django_events_sourcing.testing import disable_dispatcher
 from tests.test_app.models import Model1, ModelNoEvent, StatusModel, \
     StatusModel2
@@ -263,6 +264,12 @@ class TestDisableDispatcherDecorator(TestCase):
             uuid_field=uuid.uuid4(),
             dt_field=datetime(2019, 1, 1)
         )
+        self.m2 = Model1.objects.create(
+            int_field=1,
+            char_field='test2',
+            uuid_field=uuid.uuid4(),
+            dt_field=datetime(2020, 1, 1)
+        )
 
     @disable_dispatcher()
     @patch('django_events_sourcing.nameko.events.event_dispatcher')
@@ -289,6 +296,50 @@ class TestDisableDispatcherDecorator(TestCase):
                               uuid_field=uuid.uuid4(),
                               dt_field=datetime(2019, 1, 1))
         dispatcher.assert_called_once()
+
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    def test_model_object_disabled(self, dispatcher):
+        fn = MagicMock()
+        dispatcher.return_value = fn
+        with disable_model_obj_dispatcher(self.m2):
+            self.m1.int_field = 100
+            self.m1.save()
+            self.m2.int_field = 100
+            self.m2.save()
+        fn.assert_called_once()
+        fn.assert_called_with(
+            "test_service",
+            "model1__updated",
+            {
+                'id': self.m1.id,
+                'int_field': 100,
+                'char_field': 'test',
+            }
+        )
+
+    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    def test_model_obj_restored(self, dispatcher):
+        fn = MagicMock()
+        dispatcher.return_value = fn
+        with disable_model_obj_dispatcher(self.m2):
+            self.m1.int_field = 100
+            self.m1.save()
+            self.m2.int_field = 100
+            self.m2.save()
+        self.m2.int_field = 0
+        self.m2.save()
+        fn.assert_has_calls(
+            [
+                call(
+                    "test_service", "model1__updated",
+                    {'id': self.m1.id, 'int_field': 100, 'char_field': 'test'}
+                ),
+                call(
+                    "test_service", "model1__updated",
+                    {'id': self.m2.id, 'int_field': 0, 'char_field': 'test2'}
+                ),
+            ]
+        )
 
 
 @disable_dispatcher()
