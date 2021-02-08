@@ -100,6 +100,32 @@ class TestModelDispatcher(TestCase):
         )
         mock.assert_not_called()
 
+    @override_settings(
+        MODELS_CRUD_EVENT=[
+            {'model': 'test_app.Model1', "event_name_prefix": "my_model1",
+             'serializer': 'tests.test_app.serializers.Model1Serializer'}
+        ]
+    )
+    @patch("django_events_sourcing.nameko.events.event_dispatcher")
+    def test_custom_event_name_prefix(self, mock):
+        dispatcher = MagicMock()
+        mock.return_value = dispatcher
+        m = Model1.objects.create(
+            int_field=10,
+            char_field='test',
+            uuid_field=uuid.uuid4(),
+            dt_field=datetime(2019, 1, 1)
+        )
+        dispatcher.assert_called_once()
+        dispatcher.assert_called_with(
+            'test_service',
+            'my_model1__created',
+            {
+                'id': m.id,
+                'int_field': 10,
+                'char_field': 'test',
+            }
+        )
 
 
 class TestStatusModelDispatcher(TestCase):
