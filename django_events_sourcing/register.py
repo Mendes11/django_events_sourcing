@@ -1,9 +1,13 @@
+from collections import defaultdict
+
+import threading
 from django.conf import settings
 from django.db.models.signals import post_save, post_delete
+from django.test.utils import TestContextDecorator
 
-from django_events_sourcing.signals import generic_post_save, \
-    generic_post_delete
+from django_events_sourcing.dispatcher import dispatch_event
 
+_disabled_models = defaultdict(set)
 
 def _register_model_to_signals(model):
     """
@@ -57,3 +61,49 @@ def register_models(models_list=None):
         if models_list and not model_data['model'] in models_list:
             continue
         _register_model_to_signals(model_data['model'])
+
+
+class ModelDisabler(TestContextDecorator):
+    """
+    Decorator that disables any dispatching that would occur for the
+    specified model_list.
+    """
+
+    def __init__(self, models_list, **kwargs):
+        if not isinstance(models_list, list):
+            models_list = [models_list]
+        self.models_list = models_list
+        super().__init__()
+
+    def enable(self):
+        global _disabled_models
+        _disabled_models[threading.get_ident()].add(*self.models_list)
+
+    def disable(self):
+        global _disabled_models
+        _disabled_models[threading.get_ident()].remove(*self.models_list)
+
+
+def model_obj_is_disabled(model_obj):
+    global _disabled_models
+    disabled_models = _disabled_models[threading.get_ident()]
+    if model_obj in disabled_models:
+        return True
+    return False
+
+
+disable_model_obj_dispatcher = ModelDisabler
+
+
+def generic_post_save(sender, instance, created, **kwargs):
+    if model_obj_is_disabled(instance):
+        return
+
+    action = 'created' if created else 'updated'
+    dispatch_event(instance, action=action)
+
+
+def generic_post_delete(sender, instance, **kwargs):
+    if model_obj_is_disabled(instance):
+        return
+    dispatch_event(instance, action='deleted')
