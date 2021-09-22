@@ -1,7 +1,6 @@
 from contextlib import contextmanager
 
 import amqp
-from django.conf import settings
 from kombu import Exchange, Connection, producers
 
 DEFAULT_HEARTBEAT = 60

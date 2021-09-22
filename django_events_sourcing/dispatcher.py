@@ -50,9 +50,10 @@ def dispatch_event(instance, action):
     serialized_model = serialize_model(instance, model_data)
 
     try:
-        amqp_uri = settings.NAMEKO_CONFIG.get("AMQP_URI")
-    except AttributeError:
         amqp_uri = settings.AMQP_URI
+    except AttributeError:
+        # Fall back to old method of getting it
+        amqp_uri = settings.NAMEKO_CONFIG.get("AMQP_URI")
 
     dispatch(
         settings.SERVICE_NAME, event_name, serialized_model, amqp_uri

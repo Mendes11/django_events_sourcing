@@ -21,9 +21,7 @@ DATABASES = {
 
 
 SERVICE_NAME = 'test_service'
-NAMEKO_CONFIG = {
-    'AMQP_URI': 'amqp://guest:guest@localhost:5672/'
-}
+AMQP_URI = 'amqp://guest:guest@localhost:5672/'
 
 MODELS_CRUD_EVENT = [
     {'model': 'test_app.Model1',
