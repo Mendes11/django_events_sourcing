@@ -22,7 +22,6 @@ more-itertools==8.0.2
 nameko==2.12.0
 path==13.1.0
 path.py==12.4.0
-pkg-resources==0.0.0
 pkginfo==1.5.0.1
 pycparser==2.19
 Pygments==2.5.2

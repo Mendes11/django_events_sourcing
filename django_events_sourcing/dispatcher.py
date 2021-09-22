@@ -1,14 +1,17 @@
 from importlib import import_module
 
 import re
+
+from django.conf import settings
 from rest_framework import serializers
 
-from django_events_sourcing.nameko.events import dispatch
 from django_events_sourcing.utils import load_model_configurations
+from django_events_sourcing.senders.kombu import dispatch
 
 
 def slug_model_name(instance):
     return re.sub('(?<!^)(?=[A-Z])', '_', type(instance).__name__).lower()
+
 
 def get_event_name(instance, model_data, action):
     event_name = model_data.get("event_name_prefix")
@@ -45,4 +48,12 @@ def dispatch_event(instance, action):
         return
     event_name = get_event_name(instance, model_data, action)
     serialized_model = serialize_model(instance, model_data)
-    dispatch(event_name, serialized_model)
+
+    try:
+        amqp_uri = settings.NAMEKO_CONFIG.get("AMQP_URI")
+    except AttributeError:
+        amqp_uri = settings.AMQP_URI
+
+    dispatch(
+        settings.SERVICE_NAME, event_name, serialized_model, amqp_uri
+    )
