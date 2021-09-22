@@ -23,7 +23,7 @@ path==13.1.0
 path.py==12.4.0
 pkginfo==1.5.0.1
 pycparser==2.19
-Pygments==2.5.2
+Pygments==2.7.4
 pytz==2019.3
 PyYAML==5.2
 readme-renderer==24.0
