@@ -1,9 +1,8 @@
 import uuid
 from datetime import datetime
-
-from django.conf import settings
-from django.test import TestCase, override_settings
 from unittest.mock import patch, MagicMock, call
+
+from django.test import TestCase, override_settings
 
 from django_events_sourcing.register import disable_model_obj_dispatcher
 from django_events_sourcing.testing import disable_dispatcher
@@ -12,7 +11,7 @@ from tests.test_app.models import Model1, ModelNoEvent, StatusModel, \
 
 
 class TestModelDispatcher(TestCase):
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def setUp(self, mock) -> None:
         self.m1 = Model1.objects.create(
             int_field=10,
@@ -21,22 +20,18 @@ class TestModelDispatcher(TestCase):
             dt_field=datetime(2019, 1, 1)
         )
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_model_1_creation_no_event(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         ModelNoEvent.objects.create(
             int_field=10,
             char_field='test',
             uuid_field=uuid.uuid4(),
-            dt_field=datetime(2019,1,1)
+            dt_field=datetime(2019, 1, 1)
         )
-        dispatcher.assert_not_called()
+        mock.assert_not_called()
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_model_1_creation_event_called(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         m = Model1.objects.create(
             int_field=10,
             char_field='test',
@@ -44,55 +39,52 @@ class TestModelDispatcher(TestCase):
             dt_field=datetime(2019, 1, 1)
         )
         mock.assert_called_once()
-        dispatcher.assert_called_with(
+        mock.assert_called_with(
             'test_service',
             'model1__created',
             {
                 'id': m.id,
                 'int_field': 10,
                 'char_field': 'test',
-            }
+            },
+            'amqp://guest:guest@localhost:5672/'
         )
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_model_1_updated(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         self.m1.int_field = 300
         self.m1.save()
         mock.assert_called_once()
-        dispatcher.assert_called_with(
+        mock.assert_called_with(
             'test_service',
             'model1__updated',
             {
                 'id': self.m1.id,
                 'int_field': 300,
                 'char_field': 'test',
-            }
+            },
+            'amqp://guest:guest@localhost:5672/'
         )
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_model_1_deleted(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         m1_id = self.m1.id
         self.m1.delete()
         mock.assert_called_once()
-        dispatcher.assert_called_with(
+        mock.assert_called_with(
             'test_service',
             'model1__deleted',
             {
                 'id': m1_id,
                 'int_field': 10,
                 'char_field': 'test',
-            }
+            },
+            'amqp://guest:guest@localhost:5672/'
         )
 
     @override_settings(MODELS_CRUD_EVENT=[])
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_no_event_dispatched(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         Model1.objects.create(
             int_field=10,
             char_field='test',
@@ -107,30 +99,29 @@ class TestModelDispatcher(TestCase):
              'serializer': 'tests.test_app.serializers.Model1Serializer'}
         ]
     )
-    @patch("django_events_sourcing.nameko.events.event_dispatcher")
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_custom_event_name_prefix(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         m = Model1.objects.create(
             int_field=10,
             char_field='test',
             uuid_field=uuid.uuid4(),
             dt_field=datetime(2019, 1, 1)
         )
-        dispatcher.assert_called_once()
-        dispatcher.assert_called_with(
+        mock.assert_called_once()
+        mock.assert_called_with(
             'test_service',
             'my_model1__created',
             {
                 'id': m.id,
                 'int_field': 10,
                 'char_field': 'test',
-            }
+            },
+            'amqp://guest:guest@localhost:5672/'
         )
 
 
 class TestStatusModelDispatcher(TestCase):
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def setUp(self, mock) -> None:
         self.m1 = StatusModel.objects.create(
             int_field=10,
@@ -147,10 +138,8 @@ class TestStatusModelDispatcher(TestCase):
             state='created'
         )
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_status_dispatched(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         m = StatusModel.objects.create(
             int_field=10,
             char_field='test',
@@ -158,7 +147,7 @@ class TestStatusModelDispatcher(TestCase):
             dt_field=datetime(2019, 1, 1),
             status='created'
         )
-        dispatcher.assert_called_with(
+        mock.assert_called_with(
             'test_service',
             'status_model__created',
             {
@@ -168,13 +157,12 @@ class TestStatusModelDispatcher(TestCase):
                 'uuid_field': str(m.uuid_field),
                 'dt_field': '2019-01-01T00:00:00',
                 'status': 'created'
-            }
+            },
+            'amqp://guest:guest@localhost:5672/'
         )
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_different_status_on_creation(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         m = StatusModel.objects.create(
             int_field=10,
             char_field='test',
@@ -182,7 +170,7 @@ class TestStatusModelDispatcher(TestCase):
             dt_field=datetime(2019, 1, 1),
             status='modified'
         )
-        dispatcher.assert_called_with(
+        mock.assert_called_with(
             'test_service',
             'status_model__modified',
             {
@@ -192,17 +180,16 @@ class TestStatusModelDispatcher(TestCase):
                 'uuid_field': str(m.uuid_field),
                 'dt_field': '2019-01-01T00:00:00',
                 'status': 'modified'
-            }
+            },
+            'amqp://guest:guest@localhost:5672/'
         )
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_status_change_dispatched(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         self.m1.status = 'failed'
         self.m1.int_field = 1000
         self.m1.save()
-        dispatcher.assert_called_with(
+        mock.assert_called_with(
             'test_service',
             'status_model__failed',
             {
@@ -212,16 +199,15 @@ class TestStatusModelDispatcher(TestCase):
                 'uuid_field': str(self.m1.uuid_field),
                 'dt_field': '2019-01-01T00:00:00',
                 'status': 'failed'
-            }
+            },
+            'amqp://guest:guest@localhost:5672/'
         )
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_model_deleted_dispatched(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         m1_id = self.m1.id
         self.m1.delete()
-        dispatcher.assert_called_with(
+        mock.assert_called_with(
             'test_service',
             'status_model__deleted',
             {
@@ -231,17 +217,16 @@ class TestStatusModelDispatcher(TestCase):
                 'uuid_field': str(self.m1.uuid_field),
                 'dt_field': '2019-01-01T00:00:00',
                 'status': 'created'
-            }
+            },
+            'amqp://guest:guest@localhost:5672/'
         )
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_model_different_state_field_name(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         self.m2.state = 'failed'
         self.m2.int_field = 44
         self.m2.save()
-        dispatcher.assert_called_with(
+        mock.assert_called_with(
             'test_service',
             'status_model2__failed',
             {
@@ -251,12 +236,13 @@ class TestStatusModelDispatcher(TestCase):
                 'uuid_field': str(self.m2.uuid_field),
                 'dt_field': '2019-01-01T00:00:00',
                 'state': 'failed'
-            }
+            },
+            'amqp://guest:guest@localhost:5672/'
         )
 
 
 class TestDisableDispatcherDecorator(TestCase):
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def setUp(self, mock) -> None:
         self.m1 = Model1.objects.create(
             int_field=10,
@@ -272,55 +258,48 @@ class TestDisableDispatcherDecorator(TestCase):
         )
 
     @disable_dispatcher()
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_all_models_disabled(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         self.m1.int_field = 100
         self.m1.save()
         self.m1.delete()
         Model1.objects.create(int_field=200, char_field='test',
                               uuid_field=uuid.uuid4(),
                               dt_field=datetime(2019, 1, 1))
-        dispatcher.assert_not_called()
+        mock.assert_not_called()
 
     @disable_dispatcher(models_list=['test_app.Model1'])
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_model_1_disabled(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         self.m1.int_field = 100
         self.m1.save()
         self.m1.delete()
         StatusModel.objects.create(int_field=200, char_field='test',
-                              uuid_field=uuid.uuid4(),
-                              dt_field=datetime(2019, 1, 1))
-        dispatcher.assert_called_once()
+                                   uuid_field=uuid.uuid4(),
+                                   dt_field=datetime(2019, 1, 1))
+        mock.assert_called_once()
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_model_object_disabled(self, dispatcher):
-        fn = MagicMock()
-        dispatcher.return_value = fn
         with disable_model_obj_dispatcher(self.m2):
             self.m1.int_field = 100
             self.m1.save()
             self.m2.int_field = 100
             self.m2.save()
-        fn.assert_called_once()
-        fn.assert_called_with(
+        dispatcher.assert_called_once()
+        dispatcher.assert_called_with(
             "test_service",
             "model1__updated",
             {
                 'id': self.m1.id,
                 'int_field': 100,
                 'char_field': 'test',
-            }
+            },
+            'amqp://guest:guest@localhost:5672/'
         )
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_model_obj_restored(self, dispatcher):
-        fn = MagicMock()
-        dispatcher.return_value = fn
         with disable_model_obj_dispatcher(self.m2):
             self.m1.int_field = 100
             self.m1.save()
@@ -328,15 +307,17 @@ class TestDisableDispatcherDecorator(TestCase):
             self.m2.save()
         self.m2.int_field = 0
         self.m2.save()
-        fn.assert_has_calls(
+        dispatcher.assert_has_calls(
             [
                 call(
                     "test_service", "model1__updated",
-                    {'id': self.m1.id, 'int_field': 100, 'char_field': 'test'}
+                    {'id': self.m1.id, 'int_field': 100, 'char_field': 'test'},
+                    'amqp://guest:guest@localhost:5672/'
                 ),
                 call(
                     "test_service", "model1__updated",
-                    {'id': self.m2.id, 'int_field': 0, 'char_field': 'test2'}
+                    {'id': self.m2.id, 'int_field': 0, 'char_field': 'test2'},
+                    'amqp://guest:guest@localhost:5672/'
                 ),
             ]
         )
@@ -344,35 +325,29 @@ class TestDisableDispatcherDecorator(TestCase):
 
 @disable_dispatcher()
 class TestDisableDispatcherClassDecoratorAllModels(TestCase):
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_nothing_dispatched(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         StatusModel.objects.create(int_field=200, char_field='test',
                                    uuid_field=uuid.uuid4(),
                                    dt_field=datetime(2019, 1, 1))
-        dispatcher.assert_not_called()
+        mock.assert_not_called()
 
 
 @disable_dispatcher(models_list=['test_app.Model1'])
 class TestDisableDispatcherClassDecoratorModel1(TestCase):
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_model_1_not_dispatched(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         self.m1 = Model1.objects.create(
             int_field=10,
             char_field='test',
             uuid_field=uuid.uuid4(),
             dt_field=datetime(2019, 1, 1)
         )
-        dispatcher.assert_not_called()
+        mock.assert_not_called()
 
-    @patch('django_events_sourcing.nameko.events.event_dispatcher')
+    @patch('django_events_sourcing.dispatcher.dispatch')
     def test_status_model_dispatched(self, mock):
-        dispatcher = MagicMock()
-        mock.return_value = dispatcher
         StatusModel.objects.create(int_field=200, char_field='test',
                                    uuid_field=uuid.uuid4(),
                                    dt_field=datetime(2019, 1, 1))
-        dispatcher.assert_called_once()
+        mock.assert_called_once()
