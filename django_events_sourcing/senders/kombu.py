@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 
 import amqp
-from kombu import Exchange, Connection, producers
+from kombu import Exchange, Connection, producers, Producer
 
 DEFAULT_HEARTBEAT = 60
 DEFAULT_TRANSPORT_OPTIONS = {
@@ -15,34 +15,6 @@ DEFAULT_RETRY_POLICY = {'max_retries': 3}
 default_transport_options = {
     'confirm_publish': True
 }
-
-
-def get_connection(amqp_uri, heartbeat=None, ssl=None, transport_options=None):
-    if heartbeat is None: heartbeat = DEFAULT_HEARTBEAT
-    if transport_options is None: transport_options = default_transport_options.copy()
-
-    connection = Connection(
-        amqp_uri, transport_options=transport_options,
-        heartbeat=heartbeat, ssl=ssl
-    )
-    return connection
-
-
-@contextmanager
-def get_producer(
-        amqp_uri, confirms=True, ssl=None, transport_options=None,
-        heartbeat=None
-):
-    if transport_options is None:
-        transport_options = DEFAULT_TRANSPORT_OPTIONS.copy()
-
-    transport_options['confirm_publish'] = confirms
-    conn = get_connection(
-        amqp_uri, heartbeat=heartbeat, ssl=ssl,
-        transport_options=transport_options
-    )
-    with producers[conn].acquire(block=True) as producer:
-        yield producer
 
 
 def get_exchange(service_name):
@@ -69,14 +41,17 @@ def dispatch(
     """
     try:
         exchange = get_exchange(service_name)
-        with get_producer(
-                amqp_uri,
-                ssl=ssl,
-                transport_options=transport_options,
-                heartbeat=heartbeat
-        ) as producer:
-            producer.publish(
-                payload, routing_key=event_name, exchange=exchange
+
+        transport_options = transport_options or default_transport_options
+        with producers[
+            Connection(
+                amqp_uri, ssl=ssl, transport_options=transport_options,
             )
+        ].acquire(block=True) as producer:
+            producer.publish(
+                payload, routing_key=event_name, exchange=exchange,
+                retry=True
+            )
+
     except amqp.exceptions.NotFound:
         pass
