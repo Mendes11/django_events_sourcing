@@ -4,7 +4,7 @@ bleach==3.3.0
 certifi==2019.11.28
 cffi==1.13.2
 chardet==3.0.4
-cryptography==3.3.2
+cryptography==39.0.1
 Django>=2.2.8
 djangorestframework==3.11.2
 dnspython==1.16.0
