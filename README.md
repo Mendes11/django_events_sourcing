@@ -37,7 +37,8 @@ MODELS_CRUD_EVENT = [
     {'model': app.Model1', 
      'serializer': 'app.serializers.Model1Serializer'},
     {'model': 'app.Model2'},
-    {'model': 'app.ModelWithStatus', 'status_field': 'status'}
+    {'model': 'app.ModelWithStatus', 'status_field': 'status'},
+    {'model': 'app.ModelWithCustomServiceName', 'service_name': 'custom_service_name'}
 ]
 ```
 
