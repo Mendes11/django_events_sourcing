@@ -56,5 +56,5 @@ def dispatch_event(instance, action):
         amqp_uri = settings.NAMEKO_CONFIG.get("AMQP_URI")
 
     dispatch(
-        settings.SERVICE_NAME, event_name, serialized_model, amqp_uri
+        model_data.get('service_name', settings.SERVICE_NAME), event_name, serialized_model, amqp_uri
     )
